@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:game/game.dart' as g;
+import 'package:provider/provider.dart';
 
 void main() {
   runApp(const MainApp());
@@ -9,10 +11,247 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
+    return ChangeNotifierProvider(
+        create: (context) => GameState(),
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  SizedBox(height: 20),
+                  GameWidget(),
+                ],
+              ),
+            ),
+          ),
+        ));
+  }
+}
+
+class GameState extends ChangeNotifier {
+  GameWrapper gameWrapper = AllFaceDownGameWrapper(g.AllFaceDownGame.random((
+    g.Player.of('Player 1'),
+    g.Player.of('Player 2'),
+  )));
+
+  void next(g.CardIndex cardIndex) {
+    gameWrapper = gameWrapper.next(cardIndex);
+    notifyListeners();
+  }
+
+  void reset() {
+    gameWrapper = AllFaceDownGameWrapper(g.AllFaceDownGame.random((
+      g.Player.of('Player 1'),
+      g.Player.of('Player 2'),
+    )));
+    notifyListeners();
+  }
+}
+
+sealed class GameWrapper {
+  GameWrapper next(g.CardIndex cardIndex);
+  g.Game get game;
+}
+
+final class AllFaceDownGameWrapper extends GameWrapper {
+  AllFaceDownGameWrapper(this.game);
+
+  @override
+  g.AllFaceDownGame game;
+
+  @override
+  GameWrapper next(g.CardIndex cardIndex) =>
+      OneFaceUpGameWrapper(game.next(cardIndex));
+}
+
+final class OneFaceUpGameWrapper extends GameWrapper {
+  OneFaceUpGameWrapper(this.game);
+
+  @override
+  g.OneFaceUpGame game;
+
+  @override
+  GameWrapper next(g.CardIndex cardIndex) =>
+      TwoFaceUpGameWrapper(game.next(cardIndex));
+}
+
+final class TwoFaceUpGameWrapper extends GameWrapper {
+  TwoFaceUpGameWrapper(this.game);
+
+  @override
+  g.TwoFaceUpGame game;
+
+  @override
+  GameWrapper next(g.CardIndex cardIndex) =>
+      AllFaceDownGameWrapper(game.next());
+}
+
+class GameWidget extends StatelessWidget {
+  const GameWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final gameState = context.watch<GameState>();
+
+    final game = gameState.gameWrapper.game;
+
+    return Column(children: [
+      BoardWidget(
+        board: game.board,
+        onTapCard: (cardIndex) => gameState.next(cardIndex),
+      ),
+      Padding(
+        padding: const EdgeInsets.all(15),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PlayerWidget(
+              player: game.players.$1,
+              isCurrentPlayer: game.currentPlayer == game.players.$1,
+            ),
+            const SizedBox(width: 15),
+            PlayerWidget(
+              player: game.players.$2,
+              isCurrentPlayer: game.currentPlayer == game.players.$2,
+            ),
+          ],
+        ),
+      ),
+      ElevatedButton(
+        onPressed: () {
+          gameState.reset();
+        },
+        child: const Text('Reset'),
+      )
+    ]);
+  }
+}
+
+class BoardWidget extends StatelessWidget {
+  const BoardWidget({
+    super.key,
+    required this.board,
+    required this.onTapCard,
+  });
+
+  final g.Board board;
+  final void Function(g.CardIndex index) onTapCard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+        children: Iterable<g.CardIndex>.generate(4)
+            .map((column) => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: Iterable<g.CardIndex>.generate(4).map(
+                  (row) {
+                    final index = column * 4 + row;
+                    return CardWidget(
+                      card: board.cards[index],
+                      onTap: (card) {
+                        if (card.mark == null) {
+                          onTapCard(index);
+                        }
+                      },
+                    );
+                  },
+                ).toList()))
+            .toList());
+  }
+}
+
+class CardWidget extends StatelessWidget {
+  const CardWidget({
+    super.key,
+    required this.card,
+    required this.onTap,
+  });
+
+  final g.Card? card;
+  final void Function(g.Card card) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final mark = card?.mark;
+
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: GestureDetector(
+        child: Container(
+          width: 75,
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            color: card != null
+                ? mark != null
+                    ? Colors.deepOrange
+                    : Colors.grey
+                : Colors.transparent,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              child: Text(mark?.name ?? '',
+                  style: theme.textTheme.displayLarge!.copyWith(
+                    color: mark != null
+                        ? Colors.white
+                        : Colors.transparent
+                  )),
+            ),
+          ),
+        ),
+        onTap: () {
+          final card = this.card;
+          if (card != null) {
+            onTap(card);
+          }
+        },
+      ),
+    );
+  }
+}
+
+class PlayerWidget extends StatelessWidget {
+  const PlayerWidget({
+    super.key,
+    required this.player,
+    required this.isCurrentPlayer,
+  });
+
+  final g.Player player;
+  final bool isCurrentPlayer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      color: isCurrentPlayer
+          ? theme.colorScheme.primary
+          : theme.colorScheme.secondary,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 40,
+          vertical: 10,
+        ),
+        child: Column(
+          children: [
+            Text(
+              player.name,
+              style: theme.textTheme.labelLarge!.copyWith(
+                  color: isCurrentPlayer
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSecondary),
+            ),
+            Text(
+              player.score.toString(),
+              style: theme.textTheme.displaySmall!.copyWith(
+                  color: isCurrentPlayer
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSecondary),
+            )
+          ],
         ),
       ),
     );
