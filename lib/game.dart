@@ -2,39 +2,59 @@ import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 
 sealed class Game extends Equatable {
-  const Game._(
+  Game._(
     this.board,
     this.players,
     this.currentPlayer,
-  );
+  ) {
+    assert(currentPlayer == players.$1 || currentPlayer == players.$2);
+  }
 
   final Board board;
   final Players players;
   final Player currentPlayer;
 
-  bool get isFinished {
-    return board.isEmpty;
+  bool get isFinished => board.isEmpty;
+
+  @override
+  List<Object?> get props => [board, players, currentPlayer];
+}
+
+final class AllFaceDownGame extends Game {
+  AllFaceDownGame._(
+    Board board,
+    Players players,
+    Player currentPlayer,
+  ) : super._(
+          board,
+          players,
+          currentPlayer,
+        ) {
+    assert(board.upCards.isEmpty);
   }
 
-  Card? get transientCard;
+  OneFaceUpGame next(CardIndex index) {
+    final card = board.cards[index];
+    if (card == null) {
+      throw ArgumentError('There is no card at $index');
+    }
 
-  Game next(CardIndex index);
+    return OneFaceUpGame._(
+        board.flipCardToFaceUp(index), players, currentPlayer);
+  }
 
-  factory Game.random(Players players) {
+  factory AllFaceDownGame.random(Players players) {
     final board = Board.random();
-    return Game.fromBoard(board, players);
+    return AllFaceDownGame.fromBoard(board, players);
   }
 
-  factory Game.fromBoard(Board board, Players players) {
-    return _PerennialGame(board, players, players.$1);
+  factory AllFaceDownGame.fromBoard(Board board, Players players) {
+    return AllFaceDownGame._(board, players, players.$1);
   }
-
-  @override
-  List<Object?> get props => [board, players, currentPlayer, transientCard];
 }
 
-final class _PerennialGame extends Game {
-  const _PerennialGame(
+final class OneFaceUpGame extends Game {
+  OneFaceUpGame._(
     Board board,
     Players players,
     Player currentPlayer,
@@ -42,73 +62,63 @@ final class _PerennialGame extends Game {
           board,
           players,
           currentPlayer,
-        );
-
-  @override
-  Card? get transientCard {
-    return null;
+        ) {
+    assert(board.upCards.length == 1);
   }
 
-  @override
-  Game next(CardIndex index) {
+  TwoFaceUpGame next(CardIndex index) {
     final card = board.cards[index];
     if (card == null) {
       throw ArgumentError('There is no card at $index');
+    } else if (card.mark != null) {
+      throw ArgumentError('The card at $index is already up');
     }
 
-    return _TransientGame(
-      board,
-      players,
-      currentPlayer,
-      card,
-    );
+    return TwoFaceUpGame._(
+        board.flipCardToFaceUp(index), players, currentPlayer);
   }
 }
 
-final class _TransientGame extends Game {
-  const _TransientGame(
+final class TwoFaceUpGame extends Game {
+  TwoFaceUpGame._(
     Board board,
     Players players,
     Player currentPlayer,
-    this.transientCard,
   ) : super._(
           board,
           players,
           currentPlayer,
-        );
+        ) {
+    assert(board.upCards.length == 2);
+  }
 
-  @override
-  Game next(CardIndex index) {
-    final card = board.cards[index];
-    if (card == null) {
-      throw ArgumentError('There is no card at $index');
-    }
+  AllFaceDownGame next() {
+    final upCards = board.upCards;
+    assert(upCards.length == 2);
 
-    if (card.mark == transientCard.mark) {
+    if (upCards[0].mark == upCards[1].mark) {
+      final mark = upCards[0].mark!;
       final newPlayers = (() {
         if (currentPlayer == players.$1) {
-          return (players.$1.addMark(card.mark), players.$2);
+          return (players.$1.addMark(mark), players.$2);
         } else {
-          return (players.$1, players.$2.addMark(card.mark));
+          return (players.$1, players.$2.addMark(mark));
         }
       })();
 
-      return _PerennialGame(
-        board.removeCards(card.mark),
+      return AllFaceDownGame._(
+        board.removeCards(mark),
         newPlayers,
-        currentPlayer,
+        currentPlayer == players.$1 ? newPlayers.$1 : newPlayers.$2,
       );
     } else {
-      return _PerennialGame(
-        board,
+      return AllFaceDownGame._(
+        board.flipAllCardsToFaceDown(),
         players,
         currentPlayer == players.$1 ? players.$2 : players.$1,
       );
     }
   }
-
-  @override
-  final Card transientCard;
 }
 
 final class Board extends Equatable {
@@ -122,7 +132,37 @@ final class Board extends Equatable {
     return cards.every((card) => card == null);
   }
 
+  List<FaceUpCard> get upCards => cards
+      .where((card) => card?.mark != null)
+      .map((card) => card as FaceUpCard)
+      .toList();
+
+  Board flipCardToFaceUp(CardIndex index) {
+    if (this.cards[index] == null) {
+      throw ArgumentError('There is no card at $index');
+    } else if (this.cards[index]?.mark != null) {
+      throw ArgumentError('The card at $index is already up');
+    }
+
+    final cards = this.cards.asMap().entries.map((entry) {
+      if (entry.key == index) {
+        return entry.value!.flip();
+      } else {
+        return entry.value;
+      }
+    }).toList();
+
+    return Board._(cards);
+  }
+
+  Board flipAllCardsToFaceDown() {
+    final cards = this.cards.map((card) => card?.down()).toList();
+    return Board._(cards);
+  }
+
   Board removeCards(Mark mark) {
+    assert(upCards.length == 2);
+
     return Board._(
       cards
           .map((card) => card == null || card.mark == mark ? null : card)
@@ -134,13 +174,13 @@ final class Board extends Equatable {
     final cards = Mark.values
         .map((mark) => [mark, mark])
         .flattened
-        .map((mark) => Card(mark))
+        .map((mark) => FaceDownCard(mark))
         .toList(growable: false);
     cards.shuffle();
     return Board.fromCards(cards);
   }
 
-  factory Board.fromCards(List<Card?> cards) {
+  factory Board.fromCards(List<FaceDownCard> cards) {
     return Board._(List.unmodifiable(cards.toList(growable: false)));
   }
 
@@ -150,13 +190,48 @@ final class Board extends Equatable {
 
 typedef CardIndex = int;
 
-final class Card extends Equatable {
-  const Card(this.mark);
+sealed class Card extends Equatable {
+  const Card(this._mark);
 
-  final Mark mark;
+  Mark? get mark;
+
+  Card flip();
+  FaceDownCard down();
 
   @override
-  List<Object> get props => [mark];
+  List<Object> get props => [_mark];
+
+  final Mark _mark;
+}
+
+final class FaceUpCard extends Card {
+  const FaceUpCard(super.mark);
+
+  @override
+  Mark? get mark {
+    return _mark;
+  }
+
+  @override
+  Card flip() => FaceDownCard(_mark);
+
+  @override
+  FaceDownCard down() => FaceDownCard(_mark);
+}
+
+final class FaceDownCard extends Card {
+  const FaceDownCard(super.mark);
+
+  @override
+  Mark? get mark {
+    return null;
+  }
+
+  @override
+  Card flip() => FaceUpCard(_mark);
+
+  @override
+  FaceDownCard down() => this;
 }
 
 enum Mark {

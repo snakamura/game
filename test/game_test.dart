@@ -11,35 +11,40 @@ void main() {
     });
 
     test('should create a random game', () {
-      final game = Game.random(players);
+      final game = AllFaceDownGame.random(players);
 
       expect(game.board.cards.length, 16);
       expect(game.players, players);
       expect(game.currentPlayer, players.$1);
-      expect(game.transientCard, null);
       expect(game.isFinished, false);
     });
 
     group('next', () {
-      late Game game;
+      late AllFaceDownGame game;
 
       setUp(() {
         final cards = Mark.values
             .map((mark) => [mark, mark])
             .flattened
-            .map((mark) => Card(mark))
+            .map((mark) => FaceDownCard(mark))
             .toList();
-        game = Game.fromBoard(Board.fromCards(cards), players);
+        game = AllFaceDownGame.fromBoard(Board.fromCards(cards), players);
       });
 
-      test('should return a transient game', () {
+      test('should return OneFaceUpGame', () {
         final nextGame = game.next(0);
-        expect(nextGame.transientCard, game.board.cards[0]);
+        expect(nextGame.board.upCards.length, 1);
+        expect(nextGame.currentPlayer.name, 'Player 1');
+      });
+
+      test('should return TwoFaceUpGame', () {
+        final nextGame = game.next(0).next(1);
+        expect(nextGame.board.upCards.length, 2);
         expect(nextGame.currentPlayer.name, 'Player 1');
       });
 
       test('should remove cards and update score', () {
-        final nextGame = game.next(0).next(1);
+        final nextGame = game.next(0).next(1).next();
         expect(nextGame.board.cards[0], null);
         expect(nextGame.board.cards[1], null);
         expect(nextGame.board.cards.nonNulls.length, 14);
@@ -51,9 +56,7 @@ void main() {
       });
 
       test('should not remove cards and change current player', () {
-        final nextGame = game.next(0).next(2);
-        expect(nextGame.board.cards[0]?.mark, Mark.a);
-        expect(nextGame.board.cards[2]?.mark, Mark.b);
+        final nextGame = game.next(0).next(2).next();
         expect(nextGame.board.cards.nonNulls.length, 16);
         expect(nextGame.players.$1.name, 'Player 1');
         expect(nextGame.players.$1.score, 0);
@@ -63,9 +66,10 @@ void main() {
       });
 
       test('should continue to finish', () {
-        final lastGame = Iterable<CardIndex>.generate(16).fold(
+        final lastGame = Iterable<CardIndex>.generate(8).fold(
           game,
-          (previousGame, cardIndex) => previousGame.next(cardIndex),
+          (previousGame, cardIndex) =>
+              previousGame.next(cardIndex * 2).next(cardIndex * 2 + 1).next(),
         );
         expect(lastGame.isFinished, true);
       });
@@ -73,31 +77,42 @@ void main() {
   });
 
   group('Board', () {
-    late List<Card> cards;
+    late List<FaceDownCard> cards;
     late Board board;
 
     setUp(() {
       cards = Mark.values
           .map((mark) => [mark, mark])
           .flattened
-          .map((mark) => Card(mark))
+          .map((mark) => FaceDownCard(mark))
           .toList();
       board = Board.fromCards(cards);
     });
 
     test('should return if it is empty', () {
       expect(board.isEmpty, false);
-      expect(Board.fromCards(List<Card?>.filled(16, null)).isEmpty, true);
+
+      final emptyBoard = Mark.values.asMap().entries.fold(
+        board,
+        (previousBoard, entry) {
+          final MapEntry(key: index, value: mark) = entry;
+          return previousBoard
+              .flipCardToFaceUp(index * 2)
+              .flipCardToFaceUp(index * 2 + 1)
+              .removeCards(mark);
+        },
+      );
+      expect(emptyBoard.isEmpty, true);
     });
 
     test('should remove cards', () {
       expect(
-        board.removeCards(Mark.a),
-        Board.fromCards([
+        board.flipCardToFaceUp(0).flipCardToFaceUp(1).removeCards(Mark.a).cards,
+        [
           null,
           null,
           ...cards.skip(2),
-        ]),
+        ],
       );
     });
 
@@ -106,17 +121,25 @@ void main() {
     });
 
     test('should not equal', () {
-      expect(board, isNot(equals(board.removeCards(Mark.a))));
+      expect(
+          board,
+          isNot(equals(board
+              .flipCardToFaceUp(0)
+              .flipCardToFaceUp(1)
+              .removeCards(Mark.a))));
     });
   });
 
   group('Card', () {
     test('should equal', () {
-      expect(const Card(Mark.a), equals(const Card(Mark.a)));
+      expect(const FaceUpCard(Mark.a), equals(const FaceUpCard(Mark.a)));
+      expect(const FaceDownCard(Mark.a), equals(const FaceDownCard(Mark.a)));
     });
 
     test('should not equal', () {
-      expect(const Card(Mark.a), isNot(equals(const Card(Mark.b))));
+      expect(const FaceUpCard(Mark.a), isNot(equals(const FaceUpCard(Mark.b))));
+      expect(const FaceDownCard(Mark.a),
+          isNot(equals(const FaceDownCard(Mark.b))));
     });
   });
 
