@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:game/game.dart';
 
 class GameState extends ChangeNotifier {
-  GameWrapper gameWrapper = initialGame;
+  GameWrapper gameWrapper = generateGame();
 
   void next(CardIndex cardIndex) {
     if (_autoNextTimer != null) {
@@ -27,7 +27,7 @@ class GameState extends ChangeNotifier {
   }
 
   void reset() {
-    gameWrapper = initialGame;
+    gameWrapper = generateGame();
 
     _autoNextTimer?.cancel();
     _autoNextTimer = null;
@@ -37,10 +37,14 @@ class GameState extends ChangeNotifier {
 
   Timer? _autoNextTimer;
 
-  static final initialGame = AllFaceDownGameWrapper(AllFaceDownGame.random((
-    Player.of('Player 1'),
-    Player.of('Player 2'),
-  )));
+  static AllFaceDownGameWrapper generateGame() => AllFaceDownGameWrapper(
+        AllFaceDownGame.random(
+          (
+            Player.of('Player 1'),
+            Player.of('Player 2'),
+          ),
+        ),
+      );
 
   static const autoNextDelay = 500;
 }
