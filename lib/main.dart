@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:provider/provider.dart';
 
-import 'game.dart' as g;
+import 'game.dart';
 import 'state.dart';
 
 void main() {
@@ -104,16 +104,16 @@ class BoardWidget extends StatelessWidget {
     required this.onTapCard,
   });
 
-  final g.Board board;
-  final void Function(g.CardIndex index) onTapCard;
+  final Board board;
+  final void Function(CardIndex index) onTapCard;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-        children: Iterable<g.CardIndex>.generate(4)
+        children: Iterable<CardIndex>.generate(4)
             .map((column) => Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: Iterable<g.CardIndex>.generate(4).map(
+                children: Iterable<CardIndex>.generate(4).map(
                   (row) {
                     final index = column * 4 + row;
                     return CardWidget(
@@ -137,8 +137,8 @@ class CardWidget extends StatelessWidget {
     required this.onTap,
   });
 
-  final g.Card? card;
-  final void Function(g.Card card) onTap;
+  final Card? card;
+  final void Function(Card card) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +186,7 @@ class PlayerWidget extends StatelessWidget {
     required this.isCurrentPlayer,
   });
 
-  final g.Player player;
+  final Player player;
   final bool isCurrentPlayer;
 
   @override
