@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:game/game.dart' as g;
 import 'package:provider/provider.dart';
+
+import 'game.dart' as g;
+import 'state.dart';
 
 void main() {
   runApp(const MainApp());
@@ -26,64 +28,6 @@ class MainApp extends StatelessWidget {
           ),
         ));
   }
-}
-
-class GameState extends ChangeNotifier {
-  GameWrapper gameWrapper = AllFaceDownGameWrapper(g.AllFaceDownGame.random((
-    g.Player.of('Player 1'),
-    g.Player.of('Player 2'),
-  )));
-
-  void next(g.CardIndex cardIndex) {
-    gameWrapper = gameWrapper.next(cardIndex);
-    notifyListeners();
-  }
-
-  void reset() {
-    gameWrapper = AllFaceDownGameWrapper(g.AllFaceDownGame.random((
-      g.Player.of('Player 1'),
-      g.Player.of('Player 2'),
-    )));
-    notifyListeners();
-  }
-}
-
-sealed class GameWrapper {
-  GameWrapper next(g.CardIndex cardIndex);
-  g.Game get game;
-}
-
-final class AllFaceDownGameWrapper extends GameWrapper {
-  AllFaceDownGameWrapper(this.game);
-
-  @override
-  g.AllFaceDownGame game;
-
-  @override
-  GameWrapper next(g.CardIndex cardIndex) =>
-      OneFaceUpGameWrapper(game.next(cardIndex));
-}
-
-final class OneFaceUpGameWrapper extends GameWrapper {
-  OneFaceUpGameWrapper(this.game);
-
-  @override
-  g.OneFaceUpGame game;
-
-  @override
-  GameWrapper next(g.CardIndex cardIndex) =>
-      TwoFaceUpGameWrapper(game.next(cardIndex));
-}
-
-final class TwoFaceUpGameWrapper extends GameWrapper {
-  TwoFaceUpGameWrapper(this.game);
-
-  @override
-  g.TwoFaceUpGame game;
-
-  @override
-  GameWrapper next(g.CardIndex cardIndex) =>
-      AllFaceDownGameWrapper(game.next());
 }
 
 class GameWidget extends StatelessWidget {
@@ -194,10 +138,7 @@ class CardWidget extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 15),
               child: Text(mark?.name ?? '',
                   style: theme.textTheme.displayLarge!.copyWith(
-                    color: mark != null
-                        ? Colors.white
-                        : Colors.transparent
-                  )),
+                      color: mark != null ? Colors.white : Colors.transparent)),
             ),
           ),
         ),
