@@ -47,29 +47,28 @@ class GameWidget extends StatelessWidget {
             : 'Draw!';
 
     return Column(children: [
-      Stack(children: [
-        Visibility(
-          visible: !game.isFinished,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: BoardWidget(
-            board: game.board,
-            onTapCard: (cardIndex) => gameState.next(cardIndex),
-          ),
-        ),
-        Visibility(
-          visible: game.isFinished,
-          child: Positioned.fill(
-            child: Center(
-              child: Text(
-                result,
-                style: theme.textTheme.displaySmall!.copyWith(),
-              ),
+      Stack(
+        alignment: Alignment.center,
+        children: [
+          Visibility(
+            visible: !game.isFinished,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: BoardWidget(
+              board: game.board,
+              onTapCard: (cardIndex) => gameState.next(cardIndex),
             ),
           ),
-        ),
-      ]),
+          Visibility(
+            visible: game.isFinished,
+            child: Text(
+              result,
+              style: theme.textTheme.displaySmall!.copyWith(),
+            ),
+          ),
+        ],
+      ),
       Padding(
         padding: const EdgeInsets.all(15),
         child: Row(
