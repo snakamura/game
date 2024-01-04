@@ -35,15 +35,41 @@ class GameWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gameState = context.watch<GameState>();
+    final theme = Theme.of(context);
 
+    final gameState = context.watch<GameState>();
     final game = gameState.gameWrapper.game;
 
+    final result = game.players.$1.score > game.players.$2.score
+        ? '${game.players.$1.name} won!'
+        : game.players.$1.score < game.players.$2.score
+            ? '${game.players.$2.name} won!'
+            : 'Draw!';
+
     return Column(children: [
-      BoardWidget(
-        board: game.board,
-        onTapCard: (cardIndex) => gameState.next(cardIndex),
-      ),
+      Stack(children: [
+        Visibility(
+          visible: !game.isFinished,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: BoardWidget(
+            board: game.board,
+            onTapCard: (cardIndex) => gameState.next(cardIndex),
+          ),
+        ),
+        Visibility(
+          visible: game.isFinished,
+          child: Positioned.fill(
+            child: Center(
+              child: Text(
+                result,
+                style: theme.textTheme.displaySmall!.copyWith(),
+              ),
+            ),
+          ),
+        ),
+      ]),
       Padding(
         padding: const EdgeInsets.all(15),
         child: Row(
