@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:game/game.dart';
 
 class GameState extends ChangeNotifier {
-  GameWrapper gameWrapper = AllFaceDownGameWrapper(AllFaceDownGame.random((
-    Player.of('Player 1'),
-    Player.of('Player 2'),
-  )));
+  GameWrapper gameWrapper = GameState.initialGame;
 
   void next(CardIndex cardIndex) {
     gameWrapper = gameWrapper.next(cardIndex);
@@ -13,17 +10,18 @@ class GameState extends ChangeNotifier {
   }
 
   void reset() {
-    gameWrapper = AllFaceDownGameWrapper(AllFaceDownGame.random((
-      Player.of('Player 1'),
-      Player.of('Player 2'),
-    )));
-    notifyListeners();
+    gameWrapper = GameState.initialGame;
   }
+
+  static final initialGame = AllFaceDownGameWrapper(AllFaceDownGame.random((
+    Player.of('Player 1'),
+    Player.of('Player 2'),
+  )));
 }
 
 sealed class GameWrapper {
-  GameWrapper next(CardIndex cardIndex);
   Game get game;
+  GameWrapper next(CardIndex cardIndex);
 }
 
 final class AllFaceDownGameWrapper extends GameWrapper {
