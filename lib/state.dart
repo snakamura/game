@@ -46,7 +46,7 @@ class GameState extends ChangeNotifier {
         ),
       );
 
-  static const autoNextDelay = 500;
+  static const autoNextDelay = 1300;
 }
 
 sealed class GameWrapper {

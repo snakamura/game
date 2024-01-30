@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart' hide Card;
 import 'package:provider/provider.dart';
 
@@ -129,6 +131,12 @@ class BoardWidget extends StatelessWidget {
   }
 }
 
+enum CardWidgetState {
+  front,
+  back,
+  hidden,
+}
+
 class CardWidget extends StatelessWidget {
   const CardWidget({
     super.key,
@@ -144,28 +152,84 @@ class CardWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     final mark = card?.mark;
+    final key = ValueKey(card != null
+        ? mark != null
+            ? CardWidgetState.front
+            : CardWidgetState.back
+        : CardWidgetState.hidden);
 
     return Padding(
       padding: const EdgeInsets.all(8),
       child: GestureDetector(
-        child: Container(
-          width: 75,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
-            color: card != null
-                ? mark != null
-                    ? Colors.deepOrange
-                    : Colors.grey
-                : Colors.transparent,
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              child: Text(mark?.name ?? '',
-                  style: theme.textTheme.displayLarge!.copyWith(
-                      color: mark != null ? Colors.white : Colors.transparent)),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 800),
+          switchInCurve: Curves.easeInBack,
+          switchOutCurve: Curves.easeInBack.flipped,
+          child: Container(
+            key: key,
+            width: 75,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              color: card != null
+                  ? mark != null
+                      ? Colors.deepOrange
+                      : Colors.grey
+                  : Colors.transparent,
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                child: Text(mark?.name ?? '',
+                    style: theme.textTheme.displayLarge!.copyWith(
+                        color:
+                            mark != null ? Colors.white : Colors.transparent)),
+              ),
             ),
           ),
+          layoutBuilder: (currentChild, previousChildren) {
+            return Stack(children: [currentChild!, ...previousChildren]);
+          },
+          transitionBuilder: (child, animation) {
+            /*
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+            */
+            /*
+            return AnimatedBuilder(
+              animation: animation,
+              child: child,
+              builder: (context, widget) {
+                return Opacity(
+                  opacity: animation.value,
+                  child: child,
+                );
+              },
+            );
+            */
+            final rotationAnimation = Tween(
+              begin: pi,
+              end: 0.0,
+            ).animate(animation);
+            return AnimatedBuilder(
+              animation: rotationAnimation,
+              child: child,
+              builder: (context, widget) {
+                final back = key != widget?.key;
+                final value = back
+                    ? min(rotationAnimation.value, pi / 2)
+                    : rotationAnimation.value;
+                final tilt = (((animation.value - 0.5).abs() - 0.5) * 0.01) *
+                    (back ? -1 : 1);
+                return Transform(
+                  transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
+                  alignment: Alignment.center,
+                  child: widget,
+                );
+              },
+            );
+          },
         ),
         onTap: () {
           final card = this.card;
