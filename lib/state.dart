@@ -5,12 +5,14 @@ import 'package:game/game.dart';
 
 class GameState extends ChangeNotifier {
   GameWrapper gameWrapper = generateGame();
+  GameWrapper? previousGameWrapper;
 
   void next(CardIndex cardIndex) {
     if (_autoNextTimer != null) {
       return;
     }
 
+    previousGameWrapper = gameWrapper;
     gameWrapper = gameWrapper.next(cardIndex);
 
     if (gameWrapper.autoNext) {
@@ -28,6 +30,7 @@ class GameState extends ChangeNotifier {
 
   void reset() {
     gameWrapper = generateGame();
+    previousGameWrapper = null;
 
     _autoNextTimer?.cancel();
     _autoNextTimer = null;

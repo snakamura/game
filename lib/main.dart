@@ -41,6 +41,7 @@ class GameWidget extends StatelessWidget {
 
     final gameState = context.watch<GameState>();
     final game = gameState.gameWrapper.game;
+    final previousGame = gameState.previousGameWrapper?.game;
 
     final result = game.players.$1.score > game.players.$2.score
         ? '${game.players.$1.name} won!'
@@ -59,6 +60,7 @@ class GameWidget extends StatelessWidget {
             maintainState: true,
             child: BoardWidget(
               board: game.board,
+              previousBoard: previousGame?.board,
               onTapCard: (cardIndex) => gameState.next(cardIndex),
             ),
           ),
@@ -102,10 +104,12 @@ class BoardWidget extends StatelessWidget {
   const BoardWidget({
     super.key,
     required this.board,
+    required this.previousBoard,
     required this.onTapCard,
   });
 
   final Board board;
+  final Board? previousBoard;
   final void Function(CardIndex index) onTapCard;
 
   @override
@@ -119,6 +123,7 @@ class BoardWidget extends StatelessWidget {
                     final index = column * 4 + row;
                     return CardWidget(
                       card: board.cards[index],
+                      previousCard: previousBoard?.cards[index],
                       onTap: (card) {
                         if (card.mark == null) {
                           onTapCard(index);
@@ -149,98 +154,120 @@ class CardWidget extends StatelessWidget {
   const CardWidget({
     super.key,
     required this.card,
+    required this.previousCard,
     required this.onTap,
   });
 
   final Card? card;
+  final Card? previousCard;
   final void Function(Card card) onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final mark = card?.mark;
-    final key = ValueKey(CardWidgetState.fromCard(card));
+    final cardWidgetState = CardWidgetState.fromCard(card);
+    final previousCardWidgetState = CardWidgetState.fromCard(previousCard);
 
     return Padding(
       padding: const EdgeInsets.all(8),
       child: GestureDetector(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 800),
-          switchInCurve: Curves.easeInBack,
-          switchOutCurve: Curves.easeInBack.flipped,
-          child: Container(
-            key: key,
-            width: 75,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
-              color: card != null
-                  ? mark != null
-                      ? Colors.deepOrange
-                      : Colors.grey
-                  : Colors.transparent,
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                child: Text(mark?.name ?? '',
-                    style: theme.textTheme.displayLarge!.copyWith(
-                        color:
-                            mark != null ? Colors.white : Colors.transparent)),
-              ),
-            ),
-          ),
-          layoutBuilder: (currentChild, previousChildren) {
-            return Stack(children: [currentChild!, ...previousChildren]);
-          },
-          transitionBuilder: (child, animation) {
-            /*
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-            */
-            /*
-            return AnimatedBuilder(
-              animation: animation,
-              child: child,
-              builder: (context, widget) {
-                return Opacity(
-                  opacity: animation.value,
-                  child: child,
-                );
-              },
-            );
-            */
-            final rotationAnimation = Tween(
-              begin: pi,
-              end: 0.0,
-            ).animate(animation);
-            return AnimatedBuilder(
-              animation: rotationAnimation,
-              child: child,
-              builder: (context, widget) {
-                final back = key != widget?.key;
-                final value = back
-                    ? min(rotationAnimation.value, pi / 2)
-                    : rotationAnimation.value;
-                final tilt = (((animation.value - 0.5).abs() - 0.5) * 0.01) *
-                    (back ? -1 : 1);
-                return Transform(
-                  transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
-                  alignment: Alignment.center,
-                  child: widget,
-                );
-              },
-            );
-          },
-        ),
+        child: cardWidgetState == CardWidgetState.hidden ||
+                previousCardWidgetState == CardWidgetState.hidden
+            ? _buildFadeAnimation(theme, card)
+            : _buildFlipAnimation(theme, card),
         onTap: () {
           final card = this.card;
           if (card != null) {
             onTap(card);
           }
         },
+      ),
+    );
+  }
+
+  static Widget _buildFadeAnimation(ThemeData theme, Card? card) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 800),
+      child: _buildCard(theme, card),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+        /*
+        return AnimatedBuilder(
+          animation: animation,
+          child: child,
+          builder: (context, widget) {
+            return Opacity(
+              opacity: animation.value,
+              child: child,
+            );
+          },
+        );
+        */
+      },
+    );
+  }
+
+  static Widget _buildFlipAnimation(ThemeData theme, Card? card) {
+    final key = ValueKey(CardWidgetState.fromCard(card));
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 800),
+      //switchInCurve: Curves.easeInBack,
+      //switchOutCurve: Curves.easeInBack.flipped,
+      child: _buildCard(theme, card),
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(children: [currentChild!, ...previousChildren]);
+      },
+      transitionBuilder: (child, animation) {
+        final rotationAnimation = Tween(
+          begin: pi,
+          end: 0.0,
+        ).animate(animation);
+        return AnimatedBuilder(
+          animation: rotationAnimation,
+          child: child,
+          builder: (context, widget) {
+            final back = key != widget?.key;
+            final value = min(rotationAnimation.value, pi / 2);
+            final tilt = (((animation.value - 0.5).abs() - 0.5) * 0.01) *
+                (back ? -1 : 1);
+            return Transform(
+              transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
+              alignment: Alignment.center,
+              child: widget,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static Widget _buildCard(ThemeData theme, Card? card) {
+    final mark = card?.mark;
+    final key = ValueKey(CardWidgetState.fromCard(card));
+
+    return Container(
+      key: key,
+      width: 75,
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        color: card != null
+            ? mark != null
+                ? Colors.deepOrange
+                : Colors.grey
+            : Colors.transparent,
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          child: Text(mark?.name ?? '',
+              style: theme.textTheme.displayLarge!.copyWith(
+                  color: mark != null ? Colors.white : Colors.transparent)),
+        ),
       ),
     );
   }
