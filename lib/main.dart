@@ -134,7 +134,15 @@ class BoardWidget extends StatelessWidget {
 enum CardWidgetState {
   front,
   back,
-  hidden,
+  hidden;
+
+  factory CardWidgetState.fromCard(Card? card) {
+    if (card != null) {
+      return card.mark != null ? CardWidgetState.front : CardWidgetState.back;
+    } else {
+      return CardWidgetState.hidden;
+    }
+  }
 }
 
 class CardWidget extends StatelessWidget {
@@ -152,11 +160,7 @@ class CardWidget extends StatelessWidget {
     final theme = Theme.of(context);
 
     final mark = card?.mark;
-    final key = ValueKey(card != null
-        ? mark != null
-            ? CardWidgetState.front
-            : CardWidgetState.back
-        : CardWidgetState.hidden);
+    final key = ValueKey(CardWidgetState.fromCard(card));
 
     return Padding(
       padding: const EdgeInsets.all(8),
