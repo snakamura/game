@@ -15,20 +15,21 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-        create: (context) => GameState(),
-        child: const MaterialApp(
-          home: Scaffold(
-            body: SafeArea(
-              child: Column(
-                children: [
-                  SizedBox(height: 20),
-                  GameWidget(),
-                ],
+    return MaterialApp(
+      home: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              ChangeNotifierProvider(
+                create: (context) => GameState(),
+                child: const GameWidget(),
               ),
-            ),
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }
 
