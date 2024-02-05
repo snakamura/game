@@ -170,13 +170,23 @@ class CardWidget extends StatelessWidget {
     final cardWidgetState = CardWidgetState.fromCard(card);
     final previousCardWidgetState = CardWidgetState.fromCard(previousCard);
 
+    final key = ValueKey(CardWidgetState.fromCard(card));
+    final flip = cardWidgetState != CardWidgetState.hidden ||
+        previousCardWidgetState != CardWidgetState.hidden;
+
     return Padding(
       padding: const EdgeInsets.all(8),
       child: GestureDetector(
-        child: cardWidgetState == CardWidgetState.hidden ||
-                previousCardWidgetState == CardWidgetState.hidden
-            ? _buildFadeAnimation(theme, card)
-            : _buildFlipAnimation(theme, card),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 800),
+          transitionBuilder: flip
+              ? _buildFlipTransitionBuilder(key)
+              : AnimatedSwitcher.defaultTransitionBuilder,
+          layoutBuilder: flip
+              ? _buildFlipLayoutBuilder()
+              : AnimatedSwitcher.defaultLayoutBuilder,
+          child: _buildCardWidget(theme, card, key),
+        ),
         onTap: () {
           final card = this.card;
           if (card != null) {
@@ -187,69 +197,46 @@ class CardWidget extends StatelessWidget {
     );
   }
 
-  static Widget _buildFadeAnimation(ThemeData theme, Card? card) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 800),
-      child: _buildCard(theme, card),
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
-        /*
-        return AnimatedBuilder(
-          animation: animation,
-          child: child,
-          builder: (context, widget) {
-            return Opacity(
-              opacity: animation.value,
-              child: child,
-            );
-          },
-        );
-        */
-      },
-    );
+  static AnimatedSwitcherLayoutBuilder _buildFlipLayoutBuilder() {
+    return (
+      Widget? currentChild,
+      List<Widget> previousChildren,
+    ) {
+      return Stack(children: [currentChild!, ...previousChildren]);
+    };
   }
 
-  static Widget _buildFlipAnimation(ThemeData theme, Card? card) {
-    final key = ValueKey(CardWidgetState.fromCard(card));
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 800),
-      //switchInCurve: Curves.easeInBack,
-      //switchOutCurve: Curves.easeInBack.flipped,
-      child: _buildCard(theme, card),
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(children: [currentChild!, ...previousChildren]);
-      },
-      transitionBuilder: (child, animation) {
-        final rotationAnimation = Tween(
-          begin: pi,
-          end: 0.0,
-        ).animate(animation);
-        return AnimatedBuilder(
-          animation: rotationAnimation,
-          child: child,
-          builder: (context, widget) {
-            final back = key != widget?.key;
-            final value = min(rotationAnimation.value, pi / 2);
-            final tilt = (((animation.value - 0.5).abs() - 0.5) * 0.01) *
-                (back ? -1 : 1);
-            return Transform(
-              transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
-              alignment: Alignment.center,
-              child: widget,
-            );
-          },
-        );
-      },
-    );
+  static AnimatedSwitcherTransitionBuilder _buildFlipTransitionBuilder(
+    Key key,
+  ) {
+    return (
+      Widget child,
+      Animation<double> animation,
+    ) {
+      final rotationAnimation = Tween(
+        begin: pi,
+        end: 0.0,
+      ).animate(animation);
+      return AnimatedBuilder(
+        animation: rotationAnimation,
+        child: child,
+        builder: (context, widget) {
+          final back = key != widget?.key;
+          final value = min(rotationAnimation.value, pi / 2);
+          final tilt =
+              (((animation.value - 0.5).abs() - 0.5) * 0.01) * (back ? -1 : 1);
+          return Transform(
+            transform: Matrix4.rotationY(value)..setEntry(3, 0, tilt),
+            alignment: Alignment.center,
+            child: widget,
+          );
+        },
+      );
+    };
   }
 
-  static Widget _buildCard(ThemeData theme, Card? card) {
+  static Widget _buildCardWidget(ThemeData theme, Card? card, Key key) {
     final mark = card?.mark;
-    final key = ValueKey(CardWidgetState.fromCard(card));
 
     return Container(
       key: key,
